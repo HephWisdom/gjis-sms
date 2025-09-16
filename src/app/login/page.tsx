@@ -14,7 +14,7 @@ export default function Login() {
   useEffect(() => {
     // If user is already logged in, redirect to dashboard
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) router.replace("/admin/classes")
+      if (data.session) router.replace("/dashboard")
     })
   }, [router, supabase])
 
@@ -31,7 +31,7 @@ export default function Login() {
       setError(error.message)
     } else {
       // ✅ This automatically sets the auth cookie
-      router.push("/admin/classes")
+      router.push("/dashboard")
     }
   }
 
