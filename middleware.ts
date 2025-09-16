@@ -6,7 +6,7 @@ export function middleware(req: NextRequest) {
 
   // If no token and not already on /login, redirect
   if (!token && !req.nextUrl.pathname.startsWith("/login")) {
-    return NextResponse.redirect(new URL("/login", req.url))
+    return NextResponse.redirect(new URL("/dashboard", req.url))
   }
 
   return NextResponse.next()
