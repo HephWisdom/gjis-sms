@@ -21,7 +21,7 @@ export async function middleware(req: NextRequest) {
 
   // If logged in and trying to access /login, send to dashboard (optional)
   if (session && req.nextUrl.pathname.startsWith('/login')) {
-    return NextResponse.redirect(new URL('/admin/classes', req.url))
+    return NextResponse.redirect(new URL('/dashboard', req.url))
   }
 
   return res

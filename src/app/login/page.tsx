@@ -22,17 +22,12 @@ export default function Login() {
     e.preventDefault()
     setError("")
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-
-    if (error) {
-      setError(error.message)
-    } else {
-      // ✅ This automatically sets the auth cookie
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (!error) {
       router.push("/dashboard")
     }
+
+    if (error) setError(error.message)
   }
 
   return (
