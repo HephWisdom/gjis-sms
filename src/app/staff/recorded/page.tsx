@@ -1,5 +1,6 @@
 'use client'
-import { useEffect, useState } from 'react'
+
+import React, { JSX, useEffect, useState } from 'react'
 import { supabase } from '../../../../lib/supabaseClient'
 
 // Define record shape
@@ -12,7 +13,22 @@ interface RecordRow {
   type: 'Transport' | 'Feeding'
 }
 
-export default function StaffRecordsPage() {
+interface TransportRow {
+  id: number
+  amount: number
+  date_paid: string
+  students: {
+    id: string
+    name: string
+    classes: {
+      class_name: string
+    } | null
+  } | null
+}
+
+interface FeedingRow extends TransportRow {}
+
+export default function StaffRecordsPage(): JSX.Element {
   const [records, setRecords] = useState<RecordRow[]>([])
   const [loading, setLoading] = useState(true)
   const [editingRecord, setEditingRecord] = useState<RecordRow | null>(null)
@@ -20,23 +36,23 @@ export default function StaffRecordsPage() {
   const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    getUser()
+    void getUser()
   }, [])
 
   useEffect(() => {
-    if (userId) fetchRecords()
+    if (userId) void fetchRecords()
   }, [userId])
 
-  async function getUser() {
+  async function getUser(): Promise<void> {
     const { data, error } = await supabase.auth.getUser()
     if (error) {
       console.error('Error fetching user:', error)
       return
     }
-    setUserId(data.user?.id || null)
+    setUserId(data.user?.id ?? null)
   }
 
-  async function fetchRecords() {
+  async function fetchRecords(): Promise<void> {
     setLoading(true)
 
     const { data: transportData, error: transportError } = await supabase
@@ -76,23 +92,27 @@ export default function StaffRecordsPage() {
     if (transportError) console.error('Transport fetch error:', transportError)
     if (feedingError) console.error('Feeding fetch error:', feedingError)
 
-    const transport: RecordRow[] = (transportData || []).map((r: any) => ({
-      recordId: r.id,
-      studentName: r.students?.name || '—',
-      className: r.students?.classes?.class_name || '—',
-      amountPaid: r.amount,
-      datePaid: r.date_paid,
-      type: 'Transport',
-    }))
+    const transport: RecordRow[] = (transportData as TransportRow[] | null)?.map(
+      (r) => ({
+        recordId: r.id,
+        studentName: r.students?.name ?? '—',
+        className: r.students?.classes?.class_name ?? '—',
+        amountPaid: r.amount,
+        datePaid: r.date_paid,
+        type: 'Transport',
+      })
+    ) ?? []
 
-    const feeding: RecordRow[] = (feedingData || []).map((r: any) => ({
-      recordId: r.id,
-      studentName: r.students?.name || '—',
-      className: r.students?.classes?.class_name || '—',
-      amountPaid: r.amount,
-      datePaid: r.date_paid,
-      type: 'Feeding',
-    }))
+    const feeding: RecordRow[] = (feedingData as FeedingRow[] | null)?.map(
+      (r) => ({
+        recordId: r.id,
+        studentName: r.students?.name ?? '—',
+        className: r.students?.classes?.class_name ?? '—',
+        amountPaid: r.amount,
+        datePaid: r.date_paid,
+        type: 'Feeding',
+      })
+    ) ?? []
 
     const merged = [...transport, ...feeding].sort(
       (a, b) => new Date(b.datePaid).getTime() - new Date(a.datePaid).getTime()
@@ -102,7 +122,11 @@ export default function StaffRecordsPage() {
     setLoading(false)
   }
 
-  async function updatePayment(recordId: number, amount: number, type: 'Transport' | 'Feeding') {
+  async function updatePayment(
+    recordId: number,
+    amount: number,
+    type: 'Transport' | 'Feeding'
+  ): Promise<void> {
     const table = type === 'Transport' ? 'transport_fees' : 'feeding_fees'
 
     const { error } = await supabase
@@ -117,7 +141,7 @@ export default function StaffRecordsPage() {
     } else {
       alert('Payment updated successfully')
       setEditingRecord(null)
-      fetchRecords()
+      void fetchRecords()
     }
   }
 
@@ -138,7 +162,8 @@ export default function StaffRecordsPage() {
             {records.map((r) => {
               const isToday =
                 r.datePaid &&
-                new Date(r.datePaid).toDateString() === new Date().toDateString()
+                new Date(r.datePaid).toDateString() ===
+                  new Date().toDateString()
 
               return (
                 <div
@@ -161,6 +186,7 @@ export default function StaffRecordsPage() {
                   <div className="mt-3">
                     {isToday ? (
                       <button
+                        type="button"
                         onClick={() => {
                           setEditingRecord(r)
                           setNewAmount(r.amountPaid || 0)
@@ -214,6 +240,7 @@ export default function StaffRecordsPage() {
                       <td className="px-4 py-2">
                         {isToday ? (
                           <button
+                            type="button"
                             onClick={() => {
                               setEditingRecord(r)
                               setNewAmount(r.amountPaid || 0)
@@ -253,14 +280,16 @@ export default function StaffRecordsPage() {
             />
             <div className="flex justify-end gap-3">
               <button
+                type="button"
                 onClick={() => setEditingRecord(null)}
                 className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={() =>
-                  updatePayment(
+                  void updatePayment(
                     editingRecord.recordId,
                     newAmount,
                     editingRecord.type

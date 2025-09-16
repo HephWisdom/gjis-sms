@@ -1,6 +1,7 @@
 "use client"
-import { useEffect, useState } from 'react'
-import { supabase } from '../../../../lib/supabaseClient'
+
+import { useEffect, useState } from "react"
+import { supabase } from "../../../../lib/supabaseClient"
 
 interface Student {
   id: number
@@ -12,19 +13,31 @@ interface Student {
   created_at?: string
 }
 
+interface Class {
+  id: number
+  class_name: string
+}
+
+interface FormData {
+  student_id: string
+  name: string
+  class_id: string
+  parent_contact: string
+}
+
 export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([])
-  const [search, setSearch] = useState('')
-  const [filterClass, setFilterClass] = useState<string>('')
-  const [classes, setClasses] = useState<{ id: number; class_name: string }[]>([])
+  const [classes, setClasses] = useState<Class[]>([])
+  const [search, setSearch] = useState("")
+  const [filterClass, setFilterClass] = useState<string>("")
 
   const [showForm, setShowForm] = useState(false)
   const [editingStudent, setEditingStudent] = useState<Student | null>(null)
-  const [formData, setFormData] = useState({
-    student_id: '',
-    name: '',
-    class_id: '',
-    parent_contact: '',
+  const [formData, setFormData] = useState<FormData>({
+    student_id: "",
+    name: "",
+    class_id: "",
+    parent_contact: "",
   })
 
   useEffect(() => {
@@ -34,15 +47,15 @@ export default function StudentsPage() {
   async function fetchStudents() {
     try {
       const { data: studentsData, error: studentsError } = await supabase
-        .from('students')
-        .select('*')
-        .order('id', { ascending: false })
+        .from("students")
+        .select("*")
+        .order("id", { ascending: false })
 
       if (studentsError) throw studentsError
 
       const { data: classesData, error: classesError } = await supabase
-        .from('classes')
-        .select('id, class_name')
+        .from("classes")
+        .select("id, class_name")
 
       if (classesError) throw classesError
 
@@ -56,12 +69,12 @@ export default function StudentsPage() {
       const merged =
         studentsData?.map((s) => ({
           ...s,
-          class_name: classMap[s.class_id] || '—',
+          class_name: classMap[s.class_id] || "—",
         })) || []
 
       setStudents(merged)
     } catch (err) {
-      console.error('Error fetching students:', err)
+      console.error("Error fetching students:", err)
     }
   }
 
@@ -69,18 +82,18 @@ export default function StudentsPage() {
     try {
       if (editingStudent) {
         const { error } = await supabase
-          .from('students')
+          .from("students")
           .update({
             student_id: formData.student_id,
             name: formData.name,
             class_id: Number(formData.class_id),
             parent_contact: formData.parent_contact,
           })
-          .eq('id', editingStudent.id)
+          .eq("id", editingStudent.id)
 
         if (error) throw error
       } else {
-        const { error } = await supabase.from('students').insert([
+        const { error } = await supabase.from("students").insert([
           {
             student_id: formData.student_id,
             name: formData.name,
@@ -92,43 +105,47 @@ export default function StudentsPage() {
         if (error) throw error
       }
 
-      setShowForm(false)
-      setEditingStudent(null)
-      setFormData({ student_id: '', name: '', class_id: '', parent_contact: '' })
+      resetForm()
       fetchStudents()
     } catch (err) {
-      console.error('Error saving student:', err)
+      console.error("Error saving student:", err)
     }
   }
 
   async function handleDelete(id: number) {
-    if (!confirm('Are you sure you want to delete this student?')) return
+    if (!confirm("Are you sure you want to delete this student?")) return
     try {
-      const { error } = await supabase.from('students').delete().eq('id', id)
+      const { error } = await supabase.from("students").delete().eq("id", id)
       if (error) throw error
       fetchStudents()
     } catch (err) {
-      console.error('Error deleting student:', err)
+      console.error("Error deleting student:", err)
     }
   }
 
+  function resetForm() {
+    setShowForm(false)
+    setEditingStudent(null)
+    setFormData({ student_id: "", name: "", class_id: "", parent_contact: "" })
+  }
+
   function exportCSV() {
-    const headers = ['Student ID', 'Name', 'Class', 'Parent Contact']
+    const headers = ["Student ID", "Name", "Class", "Parent Contact"]
     const rows = students.map((s) => [
       s.student_id,
       s.name,
-      s.class_name || '',
+      s.class_name || "",
       s.parent_contact,
     ])
 
-    let csvContent =
-      'data:text/csv;charset=utf-8,' +
-      [headers, ...rows].map((e) => e.join(',')).join('\n')
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [headers, ...rows].map((e) => e.join(",")).join("\n")
 
     const encodedUri = encodeURI(csvContent)
-    const link = document.createElement('a')
-    link.setAttribute('href', encodedUri)
-    link.setAttribute('download', 'students.csv')
+    const link = document.createElement("a")
+    link.setAttribute("href", encodedUri)
+    link.setAttribute("download", "students.csv")
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -138,7 +155,9 @@ export default function StudentsPage() {
     const matchesSearch =
       s.name.toLowerCase().includes(search.toLowerCase()) ||
       s.parent_contact.toLowerCase().includes(search.toLowerCase())
-    const matchesClass = filterClass ? s.class_id.toString() === filterClass : true
+    const matchesClass = filterClass
+      ? s.class_id.toString() === filterClass
+      : true
     return matchesSearch && matchesClass
   })
 
@@ -179,7 +198,12 @@ export default function StudentsPage() {
         <button
           onClick={() => {
             setEditingStudent(null)
-            setFormData({ student_id: '', name: '', class_id: '', parent_contact: '' })
+            setFormData({
+              student_id: "",
+              name: "",
+              class_id: "",
+              parent_contact: "",
+            })
             setShowForm(true)
           }}
           className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
@@ -192,13 +216,15 @@ export default function StudentsPage() {
       {showForm && (
         <div className="bg-white shadow-md rounded p-6 mb-6">
           <h2 className="text-xl font-bold mb-4">
-            {editingStudent ? 'Edit Student' : 'Add Student'}
+            {editingStudent ? "Edit Student" : "Add Student"}
           </h2>
           <input
             type="text"
             placeholder="Student ID"
             value={formData.student_id}
-            onChange={(e) => setFormData({ ...formData, student_id: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, student_id: e.target.value })
+            }
             className="border rounded p-2 mb-2 w-full"
           />
           <input
@@ -210,7 +236,9 @@ export default function StudentsPage() {
           />
           <select
             value={formData.class_id}
-            onChange={(e) => setFormData({ ...formData, class_id: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, class_id: e.target.value })
+            }
             className="border rounded p-2 mb-2 w-full"
           >
             <option value="">Select Class</option>
@@ -237,10 +265,7 @@ export default function StudentsPage() {
               Save
             </button>
             <button
-              onClick={() => {
-                setShowForm(false)
-                setEditingStudent(null)
-              }}
+              onClick={resetForm}
               className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500"
             >
               Cancel
@@ -322,7 +347,7 @@ export default function StudentsPage() {
               <span className="font-semibold">Class:</span> {student.class_name}
             </p>
             <p>
-              <span className="font-semibold">Parent Contact:</span>{' '}
+              <span className="font-semibold">Parent Contact:</span>{" "}
               {student.parent_contact}
             </p>
             <div className="flex gap-2 mt-2">

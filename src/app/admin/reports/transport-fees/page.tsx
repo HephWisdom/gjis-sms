@@ -1,17 +1,60 @@
 "use client"
-import { useEffect, useState } from 'react'
-import { supabase } from '../../../../../lib/supabaseClient'
+import { useEffect, useState } from "react"
+import { supabase } from "../../../../../lib/supabaseClient"
 
-export default function TransportFeesPage() {
-  const [records, setRecords] = useState<any[]>([])
-  const [classes, setClasses] = useState<any[]>([])
+interface Class {
+  id: number
+  class_name: string
+}
+
+interface Student {
+  id: number
+  name: string
+  classes?: {
+    class_name: string
+  } | null
+}
+
+interface Staff {
+  id: string
+  full_name: string
+  role: string
+}
+
+interface SchoolFeeRecord {
+  id: number
+  amount: number
+  date_paid: string
+  student_id: number
+  staff_id: string
+  students: Student
+  staff: Staff | null
+}
+
+interface Row {
+  studentId: number
+  studentName: string
+  className: string
+  totalFees: number
+  amountPaid: number
+  balance: number
+  datePaid: string
+  recordId: number
+  latestAmount: number
+  staffName: string
+  staffRole: string
+}
+
+export default function SchoolFeesPage() {
+  const [records, setRecords] = useState<SchoolFeeRecord[]>([])
+  const [classes, setClasses] = useState<Class[]>([])
   const [loading, setLoading] = useState(true)
-  const [editingRecord, setEditingRecord] = useState<any | null>(null)
+  const [editingRecord, setEditingRecord] = useState<(Row & { mode: "edit" | "add" }) | null>(null)
   const [newAmount, setNewAmount] = useState<number>(0)
 
-  const [selectedClass, setSelectedClass] = useState('all')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
+  const [selectedClass, setSelectedClass] = useState("all")
+  const [startDate, setStartDate] = useState("")
+  const [endDate, setEndDate] = useState("")
 
   useEffect(() => {
     fetchRecords()
@@ -20,9 +63,8 @@ export default function TransportFeesPage() {
 
   async function fetchRecords() {
     setLoading(true)
-
     const { data, error } = await supabase
-      .from('transport_fees')
+      .from("school_fees")
       .select(`
         id,
         amount,
@@ -36,40 +78,43 @@ export default function TransportFeesPage() {
             class_name
           )
         ),
-        staff:user_profiles!transport_fees_staff_id_fkey (
+        staff:user_profiles!school_fees_staff_id_fkey (
           id,
           full_name,
           role
         )
       `)
-      .order('date_paid', { ascending: false })
+      .order("date_paid", { ascending: false })
 
     if (error) {
-      console.error('Error fetching records:', error)
+      console.error("Error fetching records:", error)
       setRecords([])
     } else {
-      setRecords(data || [])
+      // Transform the data so students and staff are objects, not arrays
+      const transformed = (data as any[]).map((rec) => ({
+        ...rec,
+        students: Array.isArray(rec.students) ? rec.students[0] : rec.students,
+        staff: Array.isArray(rec.staff) ? rec.staff[0] : rec.staff,
+      }))
+      setRecords(transformed)
     }
 
     setLoading(false)
   }
 
   async function fetchClasses() {
-    const { data, error } = await supabase.from('classes').select('id, class_name')
-    if (error) console.error('Error fetching classes:', error)
-    else setClasses(data || [])
+    const { data, error } = await supabase.from("classes").select("id, class_name")
+    if (error) console.error("Error fetching classes:", error)
+    else setClasses((data as Class[]) || [])
   }
 
   async function updatePayment(recordId: number, amount: number) {
-    const { error } = await supabase
-      .from('transport_fees')
-      .update({ amount })
-      .eq('id', recordId)
+    const { error } = await supabase.from("school_fees").update({ amount }).eq("id", recordId)
 
     if (error) {
-      alert('Failed to update payment')
+      alert("Failed to update payment")
     } else {
-      alert('Payment updated successfully')
+      alert("Payment updated successfully")
       setEditingRecord(null)
       fetchRecords()
     }
@@ -81,11 +126,11 @@ export default function TransportFeesPage() {
     } = await supabase.auth.getUser()
 
     if (!studentId || !amount || !user?.id) {
-      alert('Invalid student, amount, or staff')
+      alert("Invalid student, amount, or staff")
       return
     }
 
-    const { error } = await supabase.from('transport_fees').insert([
+    const { error } = await supabase.from("school_fees").insert([
       {
         student_id: studentId,
         amount,
@@ -95,35 +140,35 @@ export default function TransportFeesPage() {
     ])
 
     if (error) {
-      alert('Failed to add payment: ' + error.message)
+      alert("Failed to add payment: " + error.message)
     } else {
-      alert('Payment added successfully')
+      alert("Payment added successfully")
       setEditingRecord(null)
       fetchRecords()
     }
   }
 
-  const rows = records.map((payment) => {
+  const rows: Row[] = records.map((payment) => {
     const student = payment.students
-    const transportFee = 6 // fixed fee per day
+    const schoolFee = 7 // fixed fee per day
 
     return {
       studentId: student.id,
       studentName: student.name,
-      className: student.classes?.class_name || '—',
-      totalFees: transportFee,
+      className: student.classes?.class_name || "—",
+      totalFees: schoolFee,
       amountPaid: payment.amount,
-      balance: transportFee - payment.amount,
+      balance: schoolFee - payment.amount,
       datePaid: payment.date_paid,
       recordId: payment.id,
       latestAmount: payment.amount,
-      staffName: payment.staff?.full_name || '—',
-      staffRole: payment.staff?.role || '—',
+      staffName: payment.staff?.full_name || "—",
+      staffRole: payment.staff?.role || "—",
     }
   })
 
   const filteredRecords = rows.filter((r) => {
-    let classMatch = selectedClass === 'all' || r.className === selectedClass
+    const classMatch = selectedClass === "all" || r.className === selectedClass
     let dateMatch = true
     if (startDate) dateMatch = new Date(r.datePaid) >= new Date(startDate)
     if (endDate) dateMatch = dateMatch && new Date(r.datePaid) <= new Date(endDate)
@@ -133,7 +178,7 @@ export default function TransportFeesPage() {
   return (
     <div className="min-h-screen bg-gray-100 p-4 sm:p-8">
       <h1 className="text-xl sm:text-2xl font-bold mb-6">
-        Transport Fees Records (₵6 per day)
+        School Fees Records (₵7 per day)
       </h1>
 
       {/* Filters */}
@@ -166,167 +211,145 @@ export default function TransportFeesPage() {
         />
       </div>
 
-      {loading ? (
-        <p>Loading...</p>
-      ) : filteredRecords.length === 0 ? (
-        <p>No records found.</p>
-      ) : (
-        <>
-          {/* Desktop Table */}
-          <div className="hidden md:block overflow-x-auto bg-white rounded-lg shadow">
-            <table className="min-w-full border-collapse text-sm sm:text-base">
-              <thead className="bg-gray-200">
-                <tr>
-                  <th className="px-3 sm:px-4 py-2 text-left">Student</th>
-                  <th className="px-3 sm:px-4 py-2 text-left">Class</th>
-                  <th className="px-3 sm:px-4 py-2 text-left">Daily Fee</th>
-                  <th className="px-3 sm:px-4 py-2 text-left">Amount Paid</th>
-                  <th className="px-3 sm:px-4 py-2 text-left">Balance</th>
-                  <th className="px-3 sm:px-4 py-2 text-left">Date Paid</th>
-                  <th className="hidden sm:table-cell px-3 sm:px-4 py-2 text-left">
-                    Recorded By
-                  </th>
-                  <th className="px-3 sm:px-4 py-2 text-left">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRecords.map((r) => {
-                  const isToday =
-                    r.datePaid &&
-                    new Date(r.datePaid).toDateString() === new Date().toDateString()
+      {/* Desktop Table */}
+      <div className="hidden sm:block overflow-x-auto bg-white rounded-lg shadow">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-gray-200 text-left">
+              <th className="p-3">Student</th>
+              <th className="p-3">Class</th>
+              <th className="p-3">Total Fees</th>
+              <th className="p-3">Amount Paid</th>
+              <th className="p-3">Balance</th>
+              <th className="p-3">Date Paid</th>
+              <th className="p-3">Staff</th>
+              <th className="p-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredRecords.map((r) => (
+              <tr key={r.recordId} className="border-b">
+                <td className="p-3">{r.studentName}</td>
+                <td className="p-3">{r.className}</td>
+                <td className="p-3">₵{r.totalFees}</td>
+                <td className="p-3">₵{r.amountPaid}</td>
+                <td className="p-3">₵{r.balance}</td>
+                <td className="p-3">{new Date(r.datePaid).toLocaleDateString()}</td>
+                <td className="p-3">
+                  {r.staffName} ({r.staffRole})
+                </td>
+                <td className="p-3">
+                  <button
+                    onClick={() =>
+                      setEditingRecord({ ...r, mode: "edit" })
+                    }
+                    className="bg-blue-500 text-white px-2 py-1 rounded"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() =>
+                      setEditingRecord({ ...r, mode: "add" })
+                    }
+                    className="ml-2 bg-green-500 text-white px-2 py-1 rounded"
+                  >
+                    Add
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-                  return (
-                    <tr key={r.recordId} className="border-t">
-                      <td className="px-3 sm:px-4 py-2">{r.studentName}</td>
-                      <td className="px-3 sm:px-4 py-2">{r.className}</td>
-                      <td className="px-3 sm:px-4 py-2">₵{r.totalFees}</td>
-                      <td className="px-3 sm:px-4 py-2">₵{r.amountPaid}</td>
-                      <td
-                        className={`px-3 sm:px-4 py-2 font-semibold ${
-                          r.balance === 0 ? 'text-green-600' : 'text-red-600'
-                        }`}
-                      >
-                        ₵{r.balance}
-                      </td>
-                      <td className="px-3 sm:px-4 py-2">
-                        {r.datePaid ? new Date(r.datePaid).toLocaleDateString() : '—'}
-                      </td>
-                      <td className="hidden sm:table-cell px-3 sm:px-4 py-2">
-                        {r.staffName} ({r.staffRole})
-                      </td>
-                      <td className="px-3 sm:px-4 py-2 space-x-2">
-                        {isToday ? (
-                          <button
-                            onClick={() => {
-                              setEditingRecord({ ...r, mode: 'edit' })
-                              setNewAmount(r.latestAmount || 0)
-                            }}
-                            className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                          >
-                            Edit
-                          </button>
-                        ) : (
-                          <span className="text-gray-400 italic">Locked</span>
-                        )}
-                        <button
-                          onClick={() => {
-                            setEditingRecord({ ...r, mode: 'add' })
-                            setNewAmount(0)
-                          }}
-                          className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
-                        >
-                          Add
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+      {/* Mobile Cards */}
+      <div className="sm:hidden space-y-4">
+        {filteredRecords.map((r) => (
+          <div
+            key={r.recordId}
+            className="bg-white p-4 rounded-lg shadow space-y-2"
+          >
+            <p>
+              <strong>Student:</strong> {r.studentName}
+            </p>
+            <p>
+              <strong>Class:</strong> {r.className}
+            </p>
+            <p>
+              <strong>Total Fees:</strong> ₵{r.totalFees}
+            </p>
+            <p>
+              <strong>Amount Paid:</strong> ₵{r.amountPaid}
+            </p>
+            <p>
+              <strong>Balance:</strong> ₵{r.balance}
+            </p>
+            <p>
+              <strong>Date Paid:</strong>{" "}
+              {new Date(r.datePaid).toLocaleDateString()}
+            </p>
+            <p>
+              <strong>Staff:</strong> {r.staffName} ({r.staffRole})
+            </p>
+            <div className="flex space-x-2 mt-2">
+              <button
+                onClick={() =>
+                  setEditingRecord({ ...r, mode: "edit" })
+                }
+                className="bg-blue-500 text-white px-2 py-1 rounded"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() =>
+                  setEditingRecord({ ...r, mode: "add" })
+                }
+                className="bg-green-500 text-white px-2 py-1 rounded"
+              >
+                Add
+              </button>
+            </div>
           </div>
+        ))}
+      </div>
 
-          {/* Mobile Cards */}
-          <div className="space-y-4 md:hidden">
-            {filteredRecords.map((r) => {
-              const isToday =
-                r.datePaid &&
-                new Date(r.datePaid).toDateString() === new Date().toDateString()
-              return (
-                <div
-                  key={r.recordId}
-                  className="bg-white rounded-lg shadow p-4 text-sm"
-                >
-                  <p><span className="font-semibold">Student:</span> {r.studentName}</p>
-                  <p><span className="font-semibold">Class:</span> {r.className}</p>
-                  <p><span className="font-semibold">Daily Fee:</span> ₵{r.totalFees}</p>
-                  <p><span className="font-semibold">Paid:</span> ₵{r.amountPaid}</p>
-                  <p className={r.balance === 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
-                    Balance: ₵{r.balance}
-                  </p>
-                  <p><span className="font-semibold">Date:</span> {new Date(r.datePaid).toLocaleDateString()}</p>
-                  <p><span className="font-semibold">By:</span> {r.staffName} ({r.staffRole})</p>
-                  <div className="mt-3 flex gap-2">
-                    {isToday ? (
-                      <button
-                        onClick={() => {
-                          setEditingRecord({ ...r, mode: 'edit' })
-                          setNewAmount(r.amountPaid || 0)
-                        }}
-                        className="flex-1 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                      >
-                        Edit
-                      </button>
-                    ) : (
-                      <span className="text-gray-400 italic">Locked</span>
-                    )}
-                    <button
-                      onClick={() => {
-                        setEditingRecord({ ...r, mode: 'add' })
-                        setNewAmount(0)
-                      }}
-                      className="flex-1 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
-                    >
-                      Add
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </>
-      )}
-
-      {/* Edit/Add Modal */}
+      {/* Edit/Add Form */}
       {editingRecord && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
             <h2 className="text-lg font-bold mb-4">
-              {editingRecord.mode === 'edit'
-                ? `Edit Payment for ${editingRecord.studentName}`
-                : `Add Payment for ${editingRecord.studentName}`}
+              {editingRecord.mode === "edit"
+                ? "Edit Payment"
+                : "Add Payment"}
             </h2>
+            <p className="mb-2">
+              <strong>Student:</strong> {editingRecord.studentName}
+            </p>
             <input
               type="number"
-              value={newAmount}
+              value={newAmount || editingRecord.latestAmount}
               onChange={(e) => setNewAmount(Number(e.target.value))}
-              className="w-full px-4 py-2 border rounded-lg mb-4"
+              placeholder="Enter amount"
+              className="w-full px-3 py-2 border rounded-lg mb-4"
             />
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end space-x-2">
               <button
                 onClick={() => setEditingRecord(null)}
-                className="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400"
+                className="px-4 py-2 bg-gray-500 text-white rounded"
               >
                 Cancel
               </button>
               <button
-                onClick={() =>
-                  editingRecord.mode === 'edit'
-                    ? updatePayment(editingRecord.recordId, newAmount)
-                    : addPayment(editingRecord.studentId, newAmount)
-                }
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                onClick={() => {
+                  if (editingRecord.mode === "edit") {
+                    updatePayment(editingRecord.recordId, newAmount)
+                  } else {
+                    addPayment(editingRecord.studentId, newAmount)
+                  }
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded"
               >
-                Save
+                {editingRecord.mode === "edit" ? "Update" : "Add"}
               </button>
             </div>
           </div>

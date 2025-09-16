@@ -4,9 +4,19 @@ import { Html5QrcodeScanner } from "html5-qrcode"
 import { supabase } from "../../../../lib/supabaseClient"
 import { motion, AnimatePresence } from "framer-motion"
 
+// ✅ Define a Student type instead of using `any`
+type Student = {
+  id: string
+  student_code: string
+  name: string
+  classes?: {
+    class_name: string
+  } | null
+}
+
 export default function ScanStudentBarcode() {
   const [scannedCode, setScannedCode] = useState("")
-  const [student, setStudent] = useState<any>(null)
+  const [student, setStudent] = useState<Student | null>(null)
   const [errorMsg, setErrorMsg] = useState("")
   const [isScanning, setIsScanning] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -35,7 +45,7 @@ export default function ScanStudentBarcode() {
       )
 
       scanner.render(
-        async (decodedText) => {
+        async (decodedText: string) => {
           if (decodedText !== scannedCode) {
             setScannedCode(decodedText)
             await fetchStudent(decodedText)
@@ -43,12 +53,12 @@ export default function ScanStudentBarcode() {
             setIsScanning(false)
           }
         },
-        (err: any) => {
+        (err: unknown) => {
           if (
             !(typeof err === "string" && err === "NotFoundException") &&
-            !(err?.name === "NotFoundException")
+            !((err as { name?: string })?.name === "NotFoundException")
           ) {
-            console.error("QR Scan error:", err.message || err)
+            console.error("QR Scan error:", (err as Error).message || err)
           }
         }
       )
@@ -56,7 +66,7 @@ export default function ScanStudentBarcode() {
     return () => {
       scanner?.clear().catch(() => {})
     }
-  }, [isScanning])
+  }, [isScanning, scannedCode]) // ✅ fixed dependency
 
   // Fetch student info
   async function fetchStudent(code: string) {
@@ -82,7 +92,16 @@ export default function ScanStudentBarcode() {
     if (error) {
       setErrorMsg("⚠️ Student not found")
     } else {
-      setStudent(data)
+      // Transform classes array to single object or null
+      const studentData = {
+        id: data.id,
+        student_code: data.student_code,
+        name: data.name,
+        classes: Array.isArray(data.classes) && data.classes.length > 0
+          ? { class_name: data.classes[0].class_name }
+          : null,
+      }
+      setStudent(studentData)
     }
   }
 

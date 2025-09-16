@@ -1,27 +1,74 @@
-"use client"
-import { useEffect, useState } from 'react'
-import { supabase } from '../../../../../lib/supabaseClient'
+"use client";
+import { useEffect, useState } from "react";
+import { supabase } from "../../../../../lib/supabaseClient";
+
+// --- Types ---
+interface Staff {
+  id: string;
+  full_name: string;
+  role: string;
+}
+
+interface SchoolFee {
+  id: number;
+  amount: number;
+  date_paid: string;
+  staff: Staff | null;
+}
+
+interface ClassInfo {
+  class_name: string;
+  set_school_fees: number;
+}
+
+interface StudentRecord {
+  id: number;
+  name: string;
+  classes: ClassInfo | null;
+  school_fees: SchoolFee[];
+}
+
+interface FlattenedRow {
+  studentId: number;
+  studentName: string;
+  className: string;
+  totalFees: number;
+  amountPaid: number;
+  balance: number;
+  datePaid: string | null;
+  recordId: number | null;
+  staffName: string;
+  staffRole: string;
+  latestAmount: number;
+  mode?: "edit" | "add";
+}
+
+interface ClassOption {
+  id: number;
+  class_name: string;
+}
 
 export default function SchoolFeesPage() {
-  const [records, setRecords] = useState<any[]>([])
-  const [classes, setClasses] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [editingRecord, setEditingRecord] = useState<any | null>(null)
-  const [newAmount, setNewAmount] = useState<number>(0)
+  const [records, setRecords] = useState<StudentRecord[]>([]);
+  const [classes, setClasses] = useState<ClassOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingRecord, setEditingRecord] = useState<FlattenedRow | null>(null);
+  const [newAmount, setNewAmount] = useState<number>(0);
 
-  const [selectedClass, setSelectedClass] = useState('all')
-  const [paymentStatus, setPaymentStatus] = useState('all') // all | paid | owing
+  const [selectedClass, setSelectedClass] = useState("all");
+  const [paymentStatus, setPaymentStatus] = useState("all"); // all | paid | owing
 
   useEffect(() => {
-    fetchRecords()
-    fetchClasses()
-  }, [])
+    fetchRecords();
+    fetchClasses();
+  }, []);
 
   async function fetchRecords() {
-    setLoading(true)
+    setLoading(true);
     const { data, error } = await supabase
-      .from('students')
-      .select(`
+      .from("students")
+      .select(
+        `
         id,
         name,
         classes:class_id (
@@ -38,97 +85,130 @@ export default function SchoolFeesPage() {
             role
           )
         )
-      `)
-      .order('date_paid', { foreignTable: 'school_fees', ascending: false })
+      `
+      )
+      .order("date_paid", { foreignTable: "school_fees", ascending: false });
 
-    if (error) console.error('Error fetching records:', error)
-    else setRecords(data || [])
+    if (error) {
+      console.error("Error fetching records:", error);
+    } else {
+      // Map data to StudentRecord type
+      const mappedRecords: StudentRecord[] = (data as any[]).map((student) => ({
+        id: student.id,
+        name: student.name,
+        classes: Array.isArray(student.classes) && student.classes.length > 0
+          ? {
+              class_name: student.classes[0].class_name,
+              set_school_fees: student.classes[0].set_school_fees,
+            }
+          : null,
+        school_fees: Array.isArray(student.school_fees)
+          ? student.school_fees.map((fee: any) => ({
+              id: fee.id,
+              amount: fee.amount,
+              date_paid: fee.date_paid,
+              staff: Array.isArray(fee.staff) && fee.staff.length > 0
+                ? {
+                    id: fee.staff[0].id,
+                    full_name: fee.staff[0].full_name,
+                    role: fee.staff[0].role,
+                  }
+                : null,
+            }))
+          : [],
+      }));
+      setRecords(mappedRecords);
+    }
 
-    setLoading(false)
+    setLoading(false);
   }
 
   async function fetchClasses() {
-    const { data, error } = await supabase.from('classes').select('id, class_name')
-    if (error) console.error('Error fetching classes:', error)
-    else setClasses(data || [])
+    const { data, error } = await supabase
+      .from("classes")
+      .select("id, class_name");
+
+    if (error) console.error("Error fetching classes:", error);
+    else setClasses((data as ClassOption[]) || []);
   }
 
   async function updatePayment(recordId: number, amount: number) {
     const { error } = await supabase
-      .from('school_fees')
+      .from("school_fees")
       .update({ amount })
-      .eq('id', recordId)
+      .eq("id", recordId);
 
     if (error) {
-      console.error('Error updating payment:', error)
-      alert('Failed to update payment')
+      console.error("Error updating payment:", error);
+      alert("Failed to update payment");
     } else {
-      alert('Payment updated successfully')
-      setEditingRecord(null)
-      fetchRecords()
+      alert("Payment updated successfully");
+      setEditingRecord(null);
+      fetchRecords();
     }
   }
 
   async function addPayment(studentId: number, amount: number) {
     if (!studentId || !amount) {
-      alert('Invalid student or amount')
-      return
+      alert("Invalid student or amount");
+      return;
     }
 
-    const user = (await supabase.auth.getUser()).data.user
+    const user = (await supabase.auth.getUser()).data.user;
 
-    const { error } = await supabase.from('school_fees').insert([
+    const { error } = await supabase.from("school_fees").insert([
       {
         student_id: studentId,
         amount,
         date_paid: new Date().toISOString(),
         staff_id: user?.id,
       },
-    ])
+    ]);
 
     if (error) {
-      console.error('Error adding payment:', error.message)
-      alert('Failed to add payment: ' + error.message)
+      console.error("Error adding payment:", error.message);
+      alert("Failed to add payment: " + error.message);
     } else {
-      alert('Payment added successfully')
-      setEditingRecord(null)
-      fetchRecords()
+      alert("Payment added successfully");
+      setEditingRecord(null);
+      fetchRecords();
     }
   }
 
   // Flatten records
-  const rows = records.map((student) => {
-    const total = student.classes?.set_school_fees || 0
+  const rows: FlattenedRow[] = records.map((student) => {
+    const total = student.classes?.set_school_fees || 0;
     const paid =
       student.school_fees?.reduce(
-        (sum: number, f: { amount: number }) => sum + f.amount,
+        (sum: number, f: SchoolFee) => sum + f.amount,
         0
-      ) || 0
-    const balance = total - paid
-    const latestPayment = student.school_fees?.[0] || null
+      ) || 0;
+    const balance = total - paid;
+    const latestPayment = student.school_fees?.[0] || null;
 
     return {
       studentId: student.id,
       studentName: student.name,
-      className: student.classes?.class_name || '—',
+      className: student.classes?.class_name || "—",
       totalFees: total,
       amountPaid: paid,
       balance,
       datePaid: latestPayment ? latestPayment.date_paid : null,
       recordId: latestPayment ? latestPayment.id : null,
-      staffName: latestPayment?.staff?.full_name || '—',
-      staffRole: latestPayment?.staff?.role || '—',
+      staffName: latestPayment?.staff?.full_name || "—",
+      staffRole: latestPayment?.staff?.role || "—",
       latestAmount: latestPayment?.amount || 0,
-    }
-  })
+    };
+  });
 
   const filteredRecords = rows.filter((r) => {
-    let statusMatch = true
-    if (paymentStatus === 'paid') statusMatch = r.balance === 0
-    if (paymentStatus === 'owing') statusMatch = r.balance > 0
-    let classMatch = selectedClass === 'all' || r.className === selectedClass
-    return statusMatch && classMatch
-  })
+    let statusMatch = true;
+    if (paymentStatus === "paid") statusMatch = r.balance === 0;
+    if (paymentStatus === "owing") statusMatch = r.balance > 0;
+    const classMatch =
+      selectedClass === "all" || r.className === selectedClass;
+    return statusMatch && classMatch;
+  });
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 sm:p-8">
@@ -166,7 +246,7 @@ export default function SchoolFeesPage() {
         <p>No records found.</p>
       ) : (
         <>
-          {/* Desktop = Table */}
+          {/* Desktop Table */}
           <div className="hidden sm:block overflow-x-auto bg-white rounded-lg shadow">
             <table className="w-full border-collapse text-sm sm:text-base">
               <thead className="bg-gray-200">
@@ -186,17 +266,23 @@ export default function SchoolFeesPage() {
                   <tr key={r.studentId} className="border-t">
                     <td className="px-4 py-2">{r.studentName}</td>
                     <td className="px-4 py-2">{r.className}</td>
-                    <td className="px-4 py-2">₵{r.totalFees.toLocaleString()}</td>
-                    <td className="px-4 py-2">₵{r.amountPaid.toLocaleString()}</td>
+                    <td className="px-4 py-2">
+                      ₵{r.totalFees.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-2">
+                      ₵{r.amountPaid.toLocaleString()}
+                    </td>
                     <td
                       className={`px-4 py-2 font-semibold ${
-                        r.balance === 0 ? 'text-green-600' : 'text-red-600'
+                        r.balance === 0 ? "text-green-600" : "text-red-600"
                       }`}
                     >
                       ₵{r.balance.toLocaleString()}
                     </td>
                     <td className="px-4 py-2">
-                      {r.datePaid ? new Date(r.datePaid).toLocaleDateString() : '—'}
+                      {r.datePaid
+                        ? new Date(r.datePaid).toLocaleDateString()
+                        : "—"}
                     </td>
                     <td className="px-4 py-2">
                       {r.staffName} ({r.staffRole})
@@ -207,8 +293,8 @@ export default function SchoolFeesPage() {
                         new Date().toDateString() ? (
                         <button
                           onClick={() => {
-                            setEditingRecord({ ...r, mode: 'edit' })
-                            setNewAmount(r.latestAmount)
+                            setEditingRecord({ ...r, mode: "edit" });
+                            setNewAmount(r.latestAmount);
                           }}
                           className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
                         >
@@ -219,8 +305,8 @@ export default function SchoolFeesPage() {
                       )}
                       <button
                         onClick={() => {
-                          setEditingRecord({ ...r, mode: 'add' })
-                          setNewAmount(0)
+                          setEditingRecord({ ...r, mode: "add" });
+                          setNewAmount(0);
                         }}
                         className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
                       >
@@ -233,7 +319,7 @@ export default function SchoolFeesPage() {
             </table>
           </div>
 
-          {/* Mobile = Card view */}
+          {/* Mobile Card */}
           <div className="sm:hidden space-y-4">
             {filteredRecords.map((r) => (
               <div key={r.studentId} className="bg-white shadow rounded-lg p-4">
@@ -243,12 +329,17 @@ export default function SchoolFeesPage() {
                 <p>Paid: ₵{r.amountPaid.toLocaleString()}</p>
                 <p
                   className={`font-semibold ${
-                    r.balance === 0 ? 'text-green-600' : 'text-red-600'
+                    r.balance === 0 ? "text-green-600" : "text-red-600"
                   }`}
                 >
                   Balance: ₵{r.balance.toLocaleString()}
                 </p>
-                <p>Date: {r.datePaid ? new Date(r.datePaid).toLocaleDateString() : '—'}</p>
+                <p>
+                  Date:{" "}
+                  {r.datePaid
+                    ? new Date(r.datePaid).toLocaleDateString()
+                    : "—"}
+                </p>
                 <p>
                   Staff: {r.staffName} ({r.staffRole})
                 </p>
@@ -258,8 +349,8 @@ export default function SchoolFeesPage() {
                     new Date().toDateString() ? (
                     <button
                       onClick={() => {
-                        setEditingRecord({ ...r, mode: 'edit' })
-                        setNewAmount(r.latestAmount)
+                        setEditingRecord({ ...r, mode: "edit" });
+                        setNewAmount(r.latestAmount);
                       }}
                       className="flex-1 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
                     >
@@ -270,8 +361,8 @@ export default function SchoolFeesPage() {
                   )}
                   <button
                     onClick={() => {
-                      setEditingRecord({ ...r, mode: 'add' })
-                      setNewAmount(0)
+                      setEditingRecord({ ...r, mode: "add" });
+                      setNewAmount(0);
                     }}
                     className="flex-1 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
                   >
@@ -289,7 +380,7 @@ export default function SchoolFeesPage() {
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40">
           <div className="bg-white p-6 rounded-lg shadow-lg w-11/12 sm:w-96">
             <h2 className="text-lg font-bold mb-4">
-              {editingRecord.mode === 'edit'
+              {editingRecord.mode === "edit"
                 ? `Edit Payment for ${editingRecord.studentName}`
                 : `Add Payment for ${editingRecord.studentName}`}
             </h2>
@@ -308,8 +399,8 @@ export default function SchoolFeesPage() {
               </button>
               <button
                 onClick={() =>
-                  editingRecord.mode === 'edit'
-                    ? updatePayment(editingRecord.recordId, newAmount)
+                  editingRecord.mode === "edit"
+                    ? updatePayment(editingRecord.recordId!, newAmount)
                     : addPayment(editingRecord.studentId, newAmount)
                 }
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 w-full sm:w-auto"
@@ -321,5 +412,5 @@ export default function SchoolFeesPage() {
         </div>
       )}
     </div>
-  )
+  );
 }

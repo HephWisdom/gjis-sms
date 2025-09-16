@@ -2,11 +2,53 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../../../lib/supabaseClient'
 
+/* ========= Type Definitions ========= */
+interface Class {
+  id: number
+  class_name: string
+  set_feeding_fees?: number
+}
+
+interface Student {
+  id: number
+  name: string
+  classes?: Class
+}
+
+interface Staff {
+  id: string
+  full_name: string
+  role: string
+}
+
+interface FeedingFeeRecord {
+  id: number
+  amount: number
+  date_paid: string
+  student_id: number
+  staff_id: string
+  students: Student
+  staff?: Staff
+}
+
+interface RowData {
+  recordId: number
+  studentId: number
+  studentName: string
+  className: string
+  totalFees: number
+  amountPaid: number
+  balance: number
+  datePaid: string
+  staffName: string
+  staffRole: string
+}
+
 export default function FeedingFeesPage() {
-  const [records, setRecords] = useState<any[]>([])
-  const [classes, setClasses] = useState<any[]>([])
+  const [records, setRecords] = useState<FeedingFeeRecord[]>([])
+  const [classes, setClasses] = useState<Class[]>([])
   const [loading, setLoading] = useState(true)
-  const [editingRecord, setEditingRecord] = useState<any | null>(null)
+  const [editingRecord, setEditingRecord] = useState<(RowData & { mode: 'edit' | 'add' }) | null>(null)
   const [newAmount, setNewAmount] = useState<number>(0)
 
   const [selectedClass, setSelectedClass] = useState('all')
@@ -48,7 +90,15 @@ export default function FeedingFeesPage() {
       console.error('Error fetching records:', error)
       setRecords([])
     } else {
-      setRecords(data || [])
+      setRecords(
+        (Array.isArray(data)
+          ? data.map((item: any) => ({
+              ...item,
+              students: Array.isArray(item.students) ? item.students[0] : item.students,
+              staff: Array.isArray(item.staff) ? item.staff[0] : item.staff,
+            }))
+          : []) as FeedingFeeRecord[]
+      )
     }
     setLoading(false)
   }
@@ -56,7 +106,7 @@ export default function FeedingFeesPage() {
   async function fetchClasses() {
     const { data, error } = await supabase.from('classes').select('id, class_name')
     if (error) console.error('Error fetching classes:', error)
-    else setClasses(data || [])
+    else setClasses((data as Class[]) || [])
   }
 
   async function updatePayment(recordId: number, amount: number) {
@@ -105,7 +155,7 @@ export default function FeedingFeesPage() {
   }
 
   // Flatten rows
-  const rows = records.map((payment) => {
+  const rows: RowData[] = records.map((payment) => {
     const student = payment.students
     const total = student.classes?.set_feeding_fees || 0
 
