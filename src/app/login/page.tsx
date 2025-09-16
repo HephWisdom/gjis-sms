@@ -11,12 +11,7 @@ export default function Login() {
   const router = useRouter()
   const supabase = createClientComponentClient()
 
-  useEffect(() => {
-    // If user is already logged in, redirect to dashboard
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) router.replace("/dashboard")
-    })
-  }, [router, supabase])
+
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
