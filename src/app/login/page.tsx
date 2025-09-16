@@ -1,29 +1,38 @@
 "use client"
+
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { supabase } from "../../../lib/supabaseClient"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 export default function Login() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const router = useRouter()
+  const supabase = createClientComponentClient()
 
   useEffect(() => {
     // If user is already logged in, redirect to dashboard
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) router.replace("/dashboard")
+      if (data.session) router.replace("/admin/classes")
     })
-  }, [router])
+  }, [router, supabase])
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
+    setError("")
+
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
-    if (error) setError(error.message)
-    else router.push("/dashboard")
+
+    if (error) {
+      setError(error.message)
+    } else {
+      // ✅ This automatically sets the auth cookie
+      router.push("/admin/classes")
+    }
   }
 
   return (
