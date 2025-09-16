@@ -1,8 +1,8 @@
 "use client"
-
 import { useState, useEffect } from "react"
 import { Html5QrcodeScanner } from "html5-qrcode"
-import { supabase } from "../../lib/supabaseClient"
+import { supabase } from "../../../../lib/supabaseClient"
+import { motion, AnimatePresence } from "framer-motion"
 
 export default function ScanStudentBarcode() {
   const [scannedCode, setScannedCode] = useState("")
@@ -24,7 +24,7 @@ export default function ScanStudentBarcode() {
     fetchStaff()
   }, [])
 
-  // QR Scanner
+  // QR Scanner setup
   useEffect(() => {
     let scanner: Html5QrcodeScanner | null = null
     if (isScanning) {
@@ -43,8 +43,13 @@ export default function ScanStudentBarcode() {
             setIsScanning(false)
           }
         },
-        (err) => {
-          if (err !== "NotFoundException") console.error("Scan error:", err)
+        (err: any) => {
+          if (
+            !(typeof err === "string" && err === "NotFoundException") &&
+            !(err?.name === "NotFoundException")
+          ) {
+            console.error("QR Scan error:", err.message || err)
+          }
         }
       )
     }
@@ -126,83 +131,112 @@ export default function ScanStudentBarcode() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4 flex flex-col items-center">
-      <div className="w-full max-w-lg">
-        <h1 className="text-2xl font-bold mb-6 text-center text-gray-800">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100 p-4 flex flex-col items-center">
+      <div className="w-full max-w-xl">
+        <h1 className="text-3xl font-extrabold mb-6 text-center text-gray-800">
           🎯 Scan Student Code
         </h1>
 
         {/* Scanner */}
         {!isScanning ? (
-          <button
+          <motion.button
+            whileTap={{ scale: 0.95 }}
             onClick={() => setIsScanning(true)}
-            className="w-full px-4 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow hover:bg-blue-700 transition"
+            className="w-full px-4 py-3 bg-blue-600 text-white font-semibold rounded-xl shadow-lg hover:bg-blue-700 transition"
           >
-            Start Scanning
-          </button>
+            🚀 Start Scanning
+          </motion.button>
         ) : (
-          <p className="text-center text-gray-600 mb-2">
+          <p className="text-center text-gray-600 mt-2">
             📸 Point the camera at the QR code...
           </p>
         )}
 
-        <div
-          id="reader"
-          className={`mx-auto w-72 h-72 border-2 border-gray-300 rounded-lg shadow-md mb-4 ${
-            !isScanning ? "hidden" : ""
-          }`}
-        ></div>
+        <AnimatePresence>
+          {isScanning && (
+            <motion.div
+              key="scanner"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.3 }}
+              className="flex justify-center mt-4"
+            >
+              <div
+                id="reader"
+                className="w-72 h-72 border-4 border-blue-400 rounded-xl shadow-lg"
+              ></div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Status messages */}
         {scannedCode && (
-          <p className="text-center text-sm text-gray-700 mb-2">
-            Scanned Code: <b>{scannedCode}</b>
+          <p className="text-center text-sm text-gray-700 mt-3">
+            ✅ Scanned Code: <b>{scannedCode}</b>
           </p>
         )}
         {errorMsg && (
-          <p className="text-red-600 text-center font-medium mb-2">
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-red-600 text-center font-medium mt-3"
+          >
             {errorMsg}
-          </p>
+          </motion.p>
         )}
         {successMsg && (
-          <p className="text-green-600 text-center font-medium mb-2">
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-green-600 text-center font-medium mt-3"
+          >
             {successMsg}
-          </p>
+          </motion.p>
         )}
 
         {/* Student Card */}
         {student && (
-          <div className="mt-6 bg-white rounded-lg shadow-md p-5">
-            <h2 className="text-lg font-bold mb-2 text-gray-800">
-              Student Details
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.4 }}
+            className="mt-6 bg-white rounded-2xl shadow-xl p-6 border"
+          >
+            <h2 className="text-xl font-bold mb-3 text-gray-800">
+              🧑‍🎓 Student Details
             </h2>
-            <p className="text-gray-700">
-              <b>Name:</b> {student.name}
-            </p>
-            <p className="text-gray-700">
-              <b>Class:</b> {student.classes?.class_name}
-            </p>
-            <p className="text-gray-700 mb-4">
-              <b>Code:</b> {student.student_code}
-            </p>
+            <div className="space-y-1 text-gray-700">
+              <p>
+                <b>Name:</b> {student.name}
+              </p>
+              <p>
+                <b>Class:</b> {student.classes?.class_name}
+              </p>
+              <p>
+                <b>Code:</b> {student.student_code}
+              </p>
+            </div>
 
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
+            <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <motion.button
+                whileTap={{ scale: 0.95 }}
                 onClick={() => handlePayment("feeding")}
                 disabled={loading}
-                className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg shadow hover:bg-green-700 disabled:opacity-50 transition"
+                className="px-4 py-3 bg-green-600 text-white rounded-xl shadow hover:bg-green-700 disabled:opacity-50 transition"
               >
-                🍲 Pay Feeding (GHS 6)
-              </button>
-              <button
+                {loading ? "⏳ Processing..." : "🍲 Pay Feeding (GHS 6)"}
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.95 }}
                 onClick={() => handlePayment("transport")}
                 disabled={loading}
-                className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-lg shadow hover:bg-purple-700 disabled:opacity-50 transition"
+                className="px-4 py-3 bg-purple-600 text-white rounded-xl shadow hover:bg-purple-700 disabled:opacity-50 transition"
               >
-                🚌 Pay Transport (GHS 6)
-              </button>
+                {loading ? "⏳ Processing..." : "🚌 Pay Transport (GHS 6)"}
+              </motion.button>
             </div>
-          </div>
+          </motion.div>
         )}
       </div>
     </div>

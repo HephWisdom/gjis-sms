@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../public/lib/supabaseClient'
+import { supabase } from '../../../lib/supabaseClient'
 
 export default function TestPage() {
   const [students, setStudents] = useState<any[]>([])

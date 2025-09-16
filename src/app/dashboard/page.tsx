@@ -1,6 +1,7 @@
+"use client"
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/router'
-import { supabase } from '../lib/supabaseClient'
+import { useRouter } from "next/navigation";
+import { supabase } from '../../../lib/supabaseClient'
 
 interface UserProfile {
   role: 'admin' | 'staff'
@@ -103,7 +104,7 @@ function AdminView({ router }: { router: ReturnType<typeof useRouter> }) {
       <Card
         title="View Reports"
         description="View fees and attendance reports."
-        onClick={() => router.push('/admin/reports')}
+        onClick={() => router.push('/admin/report')}
       />
     </div>
   )
