@@ -21,15 +21,13 @@ export default function Login() {
     if (!error) {
       router.push("/dashboard")
     }
-
-    if (error) setError(error.message)
   }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 px-4">
       <div className="w-full max-w-md sm:max-w-lg md:max-w-xl lg:max-w-2xl p-6 sm:p-8 md:p-10 bg-white rounded-2xl shadow-2xl">
         <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-center text-gray-800 mb-6">
-          School System Login
+          GJIS SYSTEM LOGIN
         </h2>
 
         {error && (

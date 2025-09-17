@@ -3,9 +3,12 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
     eslint: {
-    // Warning: This will disable ESLint during builds
+   //disable ESLint during builds
     ignoreDuringBuilds: true,
   },
+ 
+  reactStrictMode: false, 
+
 };
 
 export default nextConfig;
