@@ -11,9 +11,11 @@ export default function SupabaseProvider({ children }: { children: React.ReactNo
   useEffect(() => {
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      // Forces a refresh of server components / middleware cookies
-      router.refresh()
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
+        // Only refresh when the user actually logs in/out
+        router.refresh()
+      }
     })
 
     return () => subscription.unsubscribe()
