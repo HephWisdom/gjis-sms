@@ -21,7 +21,7 @@ interface Staff {
   role: string
 }
 
-interface SchoolFeeRecord {
+interface TransportFeeRecord {
   id: number
   amount: number
   date_paid: string
@@ -45,8 +45,8 @@ interface Row {
   staffRole: string
 }
 
-export default function SchoolFeesPage() {
-  const [records, setRecords] = useState<SchoolFeeRecord[]>([])
+export default function TransportFeesPage() {
+  const [records, setRecords] = useState<TransportFeeRecord[]>([])
   const [classes, setClasses] = useState<Class[]>([])
   const [loading, setLoading] = useState(true)
   const [editingRecord, setEditingRecord] = useState<(Row & { mode: "edit" | "add" }) | null>(null)
@@ -64,7 +64,7 @@ export default function SchoolFeesPage() {
   async function fetchRecords() {
     setLoading(true)
     const { data, error } = await supabase
-      .from("school_fees")
+      .from("transport_fees")
       .select(`
         id,
         amount,
@@ -78,7 +78,7 @@ export default function SchoolFeesPage() {
             class_name
           )
         ),
-        staff:user_profiles!school_fees_staff_id_fkey (
+        staff:user_profiles!transport_fees_staff_id_fkey (
           id,
           full_name,
           role
@@ -90,7 +90,6 @@ export default function SchoolFeesPage() {
       console.error("Error fetching records:", error)
       setRecords([])
     } else {
-      // Transform the data so students and staff are objects, not arrays
       const transformed = (data as any[]).map((rec) => ({
         ...rec,
         students: Array.isArray(rec.students) ? rec.students[0] : rec.students,
@@ -109,7 +108,7 @@ export default function SchoolFeesPage() {
   }
 
   async function updatePayment(recordId: number, amount: number) {
-    const { error } = await supabase.from("school_fees").update({ amount }).eq("id", recordId)
+    const { error } = await supabase.from("transport_fees").update({ amount }).eq("id", recordId)
 
     if (error) {
       alert("Failed to update payment")
@@ -130,7 +129,7 @@ export default function SchoolFeesPage() {
       return
     }
 
-    const { error } = await supabase.from("school_fees").insert([
+    const { error } = await supabase.from("transport_fees").insert([
       {
         student_id: studentId,
         amount,
@@ -150,15 +149,15 @@ export default function SchoolFeesPage() {
 
   const rows: Row[] = records.map((payment) => {
     const student = payment.students
-    const schoolFee = 7 // fixed fee per day
+    const transportFee = 6 // fixed transport fee per day
 
     return {
       studentId: student.id,
       studentName: student.name,
       className: student.classes?.class_name || "—",
-      totalFees: schoolFee,
+      totalFees: transportFee,
       amountPaid: payment.amount,
-      balance: schoolFee - payment.amount,
+      balance: transportFee - payment.amount,
       datePaid: payment.date_paid,
       recordId: payment.id,
       latestAmount: payment.amount,
@@ -178,7 +177,7 @@ export default function SchoolFeesPage() {
   return (
     <div className="min-h-screen bg-gray-100 p-4 sm:p-8">
       <h1 className="text-xl sm:text-2xl font-bold mb-6">
-        School Fees Records (₵7 per day)
+        Transport Fees Records (₵6 per day)
       </h1>
 
       {/* Filters */}
@@ -319,8 +318,8 @@ export default function SchoolFeesPage() {
           <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
             <h2 className="text-lg font-bold mb-4">
               {editingRecord.mode === "edit"
-                ? "Edit Payment"
-                : "Add Payment"}
+                ? "Edit Transport Payment"
+                : "Add Transport Payment"}
             </h2>
             <p className="mb-2">
               <strong>Student:</strong> {editingRecord.studentName}
