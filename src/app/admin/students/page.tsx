@@ -6,6 +6,7 @@ import { supabase } from "../../../../lib/supabaseClient"
 interface Student {
   id: number
   student_id: string
+  student_code?: string   // added this for clarity (optional)
   name: string
   class_id: number
   class_name?: string
@@ -85,6 +86,7 @@ export default function StudentsPage() {
           .from("students")
           .update({
             student_id: formData.student_id,
+            student_code: formData.student_id, // also save into student_code
             name: formData.name,
             class_id: Number(formData.class_id),
             parent_contact: formData.parent_contact,
@@ -96,6 +98,7 @@ export default function StudentsPage() {
         const { error } = await supabase.from("students").insert([
           {
             student_id: formData.student_id,
+            student_code: formData.student_id, // also save into student_code
             name: formData.name,
             class_id: Number(formData.class_id),
             parent_contact: formData.parent_contact,
